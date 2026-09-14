@@ -7,8 +7,9 @@
 
 ระบบถูกแบ่งออกเป็น 4 ส่วนหลักที่ทำงานร่วมกันแบบ Real-time ตั้งแต่ผู้ใช้อัปโหลดไฟล์ไปจนถึงกระดาษพิมพ์ออกมา:
 
-### 1. ส่วนติดต่อผู้ใช้งานและผู้ดูแลระบบ (Frontend Web - Next.js)
+### 1. ส่วนติดต่อผู้ใช้งานและผู้ดูแลระบบ (Frontend Web - Next.js & Kumo UI)
 * **User Interface (หน้าบ้าน):**
+  - ออกแบบด้วย **Cloudflare Kumo UI Design System** และไอคอน Phosphor Icons (`weight="thin"`)
   - อัปโหลดไฟล์ PDF (ระบบตรวจสอบและนับหน้าอัตโนมัติ)
   - เลือกการตั้งค่าการพิมพ์ (ดึงข้อมูลถาดกระดาษที่พร้อมใช้งานจริงจาก Admin)
   - แสดงราคาแบบ Dynamic Pricing ทันทีที่เปลี่ยนการตั้งค่า
@@ -100,6 +101,7 @@ User ─────────► Frontend ───────────�
 | **API Contract** | ข้อตกลง RESTful API Endpoint (`/api/v1`) และ Event Contract บน Socket.io สำหรับสื่อสารแบบเรียลไทม์ | [API_CONTRACT.md](docs/API_CONTRACT.md) |
 | **Infrastructure & Caching** | สถาปัตยกรรม Infra (Standalone vs Cloud), Redis Satang Pool Cache, Optimistic UI, และ WebSocket Recovery | [INFRASTRUCTURE_AND_CACHING.md](docs/INFRASTRUCTURE_AND_CACHING.md) |
 | **Project Structure Guide** | กฎการแยกไฟล์แบบ Clean Architecture (ห้ามสร้างไฟล์รวมมิตร Monolithic), การแยก Routes, Controllers, Services, และ Components ย่อย | [PROJECT_STRUCTURE_GUIDE.md](docs/PROJECT_STRUCTURE_GUIDE.md) |
+| **Kumo UI Design System** | แนวทางออกแบบด้วย Cloudflare Kumo UI, กฎเหล็ก 15 ข้อ, Phosphor Icons (`weight="thin"`), ไม่มีอีโมจิ, และ Semantic Tokens | [KUMO_UI_DESIGN_SYSTEM.md](docs/KUMO_UI_DESIGN_SYSTEM.md) |
 
 ---
 
@@ -107,7 +109,7 @@ User ─────────► Frontend ───────────�
 
 - [x] **Phase 1: Architecture Blueprint & Specifications (สมบูรณ์)**
   - จัดโครงสร้าง Repository
-  - ออกแบบเอกสารสถาปัตยกรรมระบบทั้ง 8 ฉบับ (รวม Infra, Caching และ Modular Structure Guide)
+  - ออกแบบเอกสารสถาปัตยกรรมระบบทั้ง 9 ฉบับ (รวม Kumo UI Design System)
   - จัดทำผังข้อมูล 8 ขั้นตอน User Journey Data Flow
 - [ ] **Phase 2: Backend Core Engine & Database (Modular Clean Architecture)**
   - จัดวางโฟลเดอร์แบบแยกส่วนตาม `PROJECT_STRUCTURE_GUIDE.md`
@@ -119,9 +121,9 @@ User ─────────► Frontend ───────────�
   - พัฒนา Webhook Endpoint รองรับการแจ้งเตือนจาก Android Listener
   - พัฒนาโมดูลสร้าง EMVCo PromptPay Dynamic QR Code
   - พัฒนา OCR Slip Fallback ด้วย Tesseract.js พร้อมระบบป้องกันสลิปซ้ำ (SHA-256 Hash)
-- [ ] **Phase 4: Frontend Web Portal & Admin (Next.js)**
-  - พัฒนาหน้า User Portal (แยก Components: FileUploadZone, PdfPreviewCard, PrintConfigForm, PriceSummary, PromptPayModal, StatusTracker)
-  - พัฒนาหน้า Admin Dashboard (Tray Mapping เปิด/ปิดถาด, ตรวจสอบคิวงานและประวัติ)
+- [ ] **Phase 4: Frontend Web Portal & Admin (Next.js + Kumo UI)**
+  - พัฒนาหน้า User Portal ด้วย Kumo UI Tokens และ Phosphor Icons (`weight="thin"`)
+  - พัฒนาหน้า Admin Dashboard ด้วย Canonical Kumo Components (`Sidebar`, `Table`, `LayerCard`, `Switch`)
 - [ ] **Phase 5: Print Agent (Hardware Integration)**
   - พัฒนา Print Agent รันบน Windows แยก Drivers (SumatraPDF / Win32 Spooler)
   - เชื่อมต่อ Socket.io รับงานและส่งสถานะเสร็จสิ้น
