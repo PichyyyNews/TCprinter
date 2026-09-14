@@ -35,5 +35,5 @@ export interface ActiveJobState {
   promptPayPayload: string;
   qrCodeDataUrl: string;
   expiresAt: string;
-  status: 'PENDING_PAYMENT' | 'PAID' | 'PRINTING' | 'COMPLETED' | 'FAILED';
+  status: 'PENDING_PAYMENT' | 'PAID' | 'DISPATCHED' | 'PRINTING' | 'COMPLETED' | 'FAILED' | 'EXPIRED';
 }

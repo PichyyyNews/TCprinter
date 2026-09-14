@@ -1,0 +1,107 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Printer {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  driverName     String
+  connectionType String   @default("USB")
+  status         String   @default("ONLINE")
+  lastSeen       DateTime @default(now())
+  trays          Tray[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Tray {
+  id              String   @id @default(uuid())
+  printerId       String
+  printer         Printer  @relation(fields: [printerId], references: [id], onDelete: Cascade)
+  trayNumber      Int
+  paperSize       String   @default("A4")
+  colorCapability String   @default("ANY") // "MONOCHROME" | "COLOR" | "ANY"
+  isActive        Boolean  @default(true)
+  status          String   @default("OK")  // "OK" | "OUT_OF_PAPER" | "PAPER_JAM" | "DISABLED"
+  paperRemaining  Int      @default(500)
+  printJobs       PrintJob[]
+  updatedAt       DateTime @updatedAt
+
+  @@unique([printerId, trayNumber])
+}
+
+model PricingRule {
+  id           String   @id @default(uuid())
+  paperSize    String
+  isColor      Boolean  @default(false)
+  isDuplex     Boolean  @default(false)
+  pricePerPage Float
+  isActive     Boolean  @default(true)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([paperSize, isColor, isDuplex])
+}
+
+model PrintJob {
+  id               String      @id @default(uuid())
+  orderCode        String      @unique
+  originalFileName String
+  tempFilePath     String?
+  pageCount        Int
+  copies           Int         @default(1)
+  pageRange        String      @default("all")
+  paperSize        String      @default("A4")
+  isColor          Boolean     @default(false)
+  isDuplex         Boolean     @default(false)
+  duplexEdge       String      @default("NONE") // "NONE" | "LONG_EDGE" | "SHORT_EDGE"
+  targetTrayId     String?
+  targetTray       Tray?       @relation(fields: [targetTrayId], references: [id])
+  
+  baseAmount       Int
+  satangAmount     Int
+  totalAmount      Float
+  promptPayPayload String
+  
+  status           String      @default("PENDING_PAYMENT") // PENDING_PAYMENT, PAID, DISPATCHED, PRINTING, COMPLETED, FAILED, CANCELLED, EXPIRED
+  failureReason    String?
+  
+  expiresAt        DateTime
+  paidAt           DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  paymentLogs      PaymentLog[]
+
+  @@index([baseAmount, status, createdAt])
+  @@index([totalAmount, status])
+  @@index([status, expiresAt])
+}
+
+model PaymentLog {
+  id             String    @id @default(uuid())
+  jobId          String?
+  job            PrintJob? @relation(fields: [jobId], references: [id])
+  method         String    // "NOTIFICATION_WEBHOOK" | "OCR_SLIP" | "MANUAL_ADMIN"
+  bankName       String?
+  amountReceived Float
+  slipHash       String?   @unique
+  slipTxRef      String?
+  rawPayload     String?
+  isMatched      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+
+  @@index([slipHash])
+}
+
+model SystemConfig {
+  key         String   @id
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}

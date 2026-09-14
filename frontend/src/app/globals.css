@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --kumo-canvas: #fafafa;
+  --kumo-base: #ffffff;
+  --kumo-elevated: #ffffff;
+  --kumo-recessed: #f4f4f5;
+  --kumo-control: #ffffff;
+  --kumo-tint: rgba(0, 0, 0, 0.04);
+  --kumo-default: #171717;
+  --kumo-subtle: #737373;
+  --kumo-strong: #0a0a0a;
+  --kumo-line: #e5e5e5;
+  --kumo-hairline: #f0f0f0;
+  --kumo-brand: #F6821F;
+  --kumo-brand-hover: #E06B08;
+  --kumo-success: #10b981;
+  --kumo-warning: #f59e0b;
+  --kumo-critical: #ef4444;
+}
+
+body {
+  background-color: var(--kumo-canvas);
+  color: var(--kumo-default);
+  font-size: 14px;
+  line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Rule 7: Never transition colors for hover states */
+*, *::before, *::after {
+  transition-property: transform, opacity;
+  transition-duration: 150ms;
+}
+
+/* Custom hairline borders */
+.hairline-border {
+  border-color: var(--kumo-hairline);
+}

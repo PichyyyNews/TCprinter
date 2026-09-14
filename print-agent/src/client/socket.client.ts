@@ -1,0 +1,71 @@
+import { io, Socket } from 'socket.io-client';
+import { agentConfig } from '../config/agent.config';
+import { JobExecutorService, NewJobPayload } from '../services/executor.service';
+import { PrinterMonitorService } from '../services/monitor.service';
+
+export class AgentSocketClient {
+  private socket: Socket | null = null;
+  private heartbeatTimer: NodeJS.Timeout | null = null;
+
+  constructor(
+    private executor: JobExecutorService,
+    private monitor: PrinterMonitorService
+  ) {}
+
+  start(): void {
+    console.log(`[AgentClient] Connecting to backend at ${agentConfig.BACKEND_URL}...`);
+    this.socket = io(agentConfig.BACKEND_URL, {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 2000,
+    });
+
+    this.socket.on('connect', () => {
+      console.log(`[AgentClient] Connected to backend! Socket ID: ${this.socket?.id}`);
+      this.socket?.emit('join:agent');
+      this.startHeartbeat();
+    });
+
+    this.socket.on('agent:connected', (data) => {
+      console.log(`[AgentClient] Registered in kiosk:agent room at ${data.timestamp}`);
+    });
+
+    this.socket.on('agent:new_job', async (jobData: NewJobPayload) => {
+      console.log(`[AgentClient] Received new print dispatch:`, jobData);
+      await this.executor.executeJob(jobData);
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.warn(`[AgentClient] Disconnected from backend: ${reason}`);
+      this.stopHeartbeat();
+    });
+
+    this.socket.on('connect_error', (err) => {
+      console.error(`[AgentClient] Connection error:`, err.message);
+    });
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(async () => {
+      const status = await this.monitor.checkHardwareStatus();
+      this.socket?.emit('agent:heartbeat', {
+        printerStatus: status,
+        timestamp: new Date().toISOString(),
+      });
+    }, 30000);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  stop(): void {
+    this.stopHeartbeat();
+    this.socket?.disconnect();
+    this.socket = null;
+  }
+}
