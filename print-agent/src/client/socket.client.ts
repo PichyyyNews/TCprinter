@@ -51,6 +51,24 @@ export class AgentSocketClient {
       this.monitor.setDriver(newDriver);
     });
 
+    this.socket.on('agent:config_updated', (data: { printerName?: string; sumatraPath?: string }) => {
+      console.log(`[AgentClient] Received live config update:`, data);
+      if (data.printerName && data.printerName.trim()) {
+        (agentConfig as any).PRINTER_NAME = data.printerName.trim();
+        console.log(`[AgentClient] Printer name updated to: ${agentConfig.PRINTER_NAME}`);
+      }
+      if (data.sumatraPath && data.sumatraPath.trim()) {
+        (agentConfig as any).SUMATRA_PATH = data.sumatraPath.trim();
+        console.log(`[AgentClient] SumatraPDF path updated to: ${agentConfig.SUMATRA_PATH}`);
+        // Re-init SumatraPrinterDriver with new path if currently in SUMATRA mode
+        if (this.executor.getDriverName().includes('SumatraPDF')) {
+          const updatedDriver = new SumatraPrinterDriver();
+          this.executor.setDriver(updatedDriver);
+          this.monitor.setDriver(updatedDriver);
+        }
+      }
+    });
+
     this.socket.on('disconnect', (reason) => {
       console.warn(`[AgentClient] Disconnected from backend: ${reason}`);
       this.stopHeartbeat();

@@ -31,6 +31,11 @@ export function setRuntimeDriverMode(mode: string) {
   currentDriverMode = mode;
 }
 
+export function pushConfigToAgent(io: Server, config: { printerName?: string; sumatraPath?: string }) {
+  io.to('kiosk:agent').emit('agent:config_updated', config);
+  logger.info(`[AgentHandler] Pushed config update to agent: ${JSON.stringify(config)}`);
+}
+
 export function setupAgentHandlers(io: Server, socket: Socket) {
   socket.on('join:agent', () => {
     socket.join('kiosk:agent');

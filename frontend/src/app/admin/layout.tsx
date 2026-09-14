@@ -24,7 +24,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const currentTitle = routeTitles[pathname] || 'Admin Console';
 
   return (
-    <div className="min-h-screen flex bg-kumo-canvas text-kumo-default">
+    <div className="min-h-screen bg-kumo-canvas text-kumo-default">
       {/* Mobile Drawer Backdrop */}
       {isMobileOpen && (
         <div
@@ -34,14 +34,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         />
       )}
 
-      {/* True Left-Attached Sidebar Navigation */}
+      {/* Fixed Left Sidebar Navigation */}
       <AdminSidebar
         isMobileOpen={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
       />
 
-      {/* Main Content Viewport */}
-      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
+      {/* Main Content Viewport — pushed right by sidebar width on md+ */}
+      <div className="md:ml-64 flex flex-col min-h-screen">
         {/* Admin Top Bar */}
         <header className="sticky top-0 z-20 h-14 bg-kumo-base/95 backdrop-blur-sm border-b border-kumo-line px-4 sm:px-6 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">

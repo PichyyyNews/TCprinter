@@ -87,9 +87,9 @@ export function AdminSidebar({ isMobileOpen = false, onCloseMobile }: AdminSideb
   return (
     <aside
       className={`
-        w-64 shrink-0 bg-kumo-base border-r border-kumo-line flex flex-col justify-between h-screen sticky top-0 z-30 transition-transform duration-200
-        md:translate-x-0
-        ${isMobileOpen ? 'fixed inset-y-0 left-0 translate-x-0 shadow-xl z-50' : 'fixed -translate-x-full md:static'}
+        w-64 bg-kumo-base border-r border-kumo-line flex flex-col justify-between h-screen
+        fixed inset-y-0 left-0 z-30 transition-transform duration-200
+        ${isMobileOpen ? 'translate-x-0 shadow-xl z-50' : '-translate-x-full md:translate-x-0'}
       `}
     >
       {/* Top Brand Header */}

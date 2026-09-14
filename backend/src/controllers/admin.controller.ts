@@ -19,7 +19,7 @@ import {
 import { discoverWindowsPrinters } from '../services/printer-discovery.service';
 import { processBankWebhook } from '../services/webhook.service';
 import { dispatchJobToAgent, notifyPaymentConfirmed } from '../services/queue.service';
-import { getAgentRuntimeStatus, setRuntimeDriverMode } from '../sockets/agent.handler';
+import { getAgentRuntimeStatus, setRuntimeDriverMode, pushConfigToAgent } from '../sockets/agent.handler';
 
 // ==================== PRINTERS CRUD & DISCOVERY ====================
 
@@ -657,6 +657,25 @@ export async function handleUpsertConfig(req: Request, res: Response, next: Next
       },
       create: validated,
     });
+
+    // Push relevant config to print agent in real-time (non-fatal if agent is offline)
+    if (['agent_printer_name', 'agent_sumatra_path'].includes(validated.key)) {
+      try {
+        const io = getIO();
+        const agentConfigs = await prisma.systemConfig.findMany({
+          where: { key: { in: ['agent_printer_name', 'agent_sumatra_path'] } },
+        });
+        const configMap: Record<string, string> = {};
+        agentConfigs.forEach((c) => { configMap[c.key] = c.value; });
+        pushConfigToAgent(io, {
+          printerName: configMap['agent_printer_name'],
+          sumatraPath: configMap['agent_sumatra_path'],
+        });
+      } catch {
+        // Agent may be offline — non-fatal
+      }
+    }
+
     res.json({ success: true, data: config });
   } catch (err) {
     next(err);
