@@ -14,6 +14,7 @@ import {
   GearSix,
   ArrowLeft,
   Circle,
+  X,
 } from '@phosphor-icons/react';
 import { getAgentStatus } from '../../services/adminService';
 import { AgentStatusInfo } from '../../types/admin.types';
@@ -60,7 +61,12 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-export function AdminSidebar() {
+interface AdminSidebarProps {
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}
+
+export function AdminSidebar({ isMobileOpen = false, onCloseMobile }: AdminSidebarProps) {
   const pathname = usePathname();
   const [agentStatus, setAgentStatus] = useState<AgentStatusInfo | null>(null);
 
@@ -79,21 +85,57 @@ export function AdminSidebar() {
   }, []);
 
   return (
-    <aside className="w-64 shrink-0 bg-kumo-base border-r border-kumo-line flex flex-col justify-between min-h-[calc(100vh-65px)]">
-      <div className="py-4">
-        {/* Back to kiosk quick link */}
-        <div className="px-4 mb-4">
+    <aside
+      className={`
+        w-64 shrink-0 bg-kumo-base border-r border-kumo-line flex flex-col justify-between h-screen sticky top-0 z-30 transition-transform duration-200
+        md:translate-x-0
+        ${isMobileOpen ? 'fixed inset-y-0 left-0 translate-x-0 shadow-xl z-50' : 'fixed -translate-x-full md:static'}
+      `}
+    >
+      {/* Top Brand Header */}
+      <div className="p-4 border-b border-kumo-line flex items-center justify-between shrink-0">
+        <Link
+          href="/admin"
+          onClick={onCloseMobile}
+          className="flex items-center gap-2.5 text-kumo-strong font-semibold text-sm"
+        >
+          <div className="p-1.5 bg-orange-50 text-kumo-brand rounded-md border border-orange-200">
+            <Printer size={18} weight="thin" />
+          </div>
+          <div className="flex flex-col">
+            <span className="leading-tight">TCprinter</span>
+            <span className="text-[10px] font-mono text-kumo-subtle uppercase tracking-wider">
+              Admin Console
+            </span>
+          </div>
+        </Link>
+        {onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="p-1 text-kumo-subtle hover:text-kumo-default rounded md:hidden"
+            aria-label="Close menu"
+          >
+            <X size={18} weight="thin" />
+          </button>
+        )}
+      </div>
+
+      {/* Middle Scrollable Nav Items */}
+      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+        {/* Quick Link back to Kiosk */}
+        <div>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-xs text-kumo-subtle hover:text-kumo-default px-2.5 py-1.5 rounded-md hover:bg-kumo-tint w-full"
+            onClick={onCloseMobile}
+            className="flex items-center gap-2 text-xs text-kumo-subtle hover:text-kumo-default px-3 py-2 rounded-md hover:bg-kumo-tint transition-colors w-full border border-kumo-hairline"
           >
             <ArrowLeft size={14} weight="thin" />
-            <span>Return to kiosk customer view</span>
+            <span>Return to kiosk portal</span>
           </Link>
         </div>
 
         {/* Sidebar Nav Groups */}
-        <div className="grid gap-6 px-3">
+        <div className="grid gap-6">
           {navGroups.map((group) => (
             <div key={group.label} className="grid gap-1">
               <div className="px-3 text-[11px] uppercase tracking-wider text-kumo-subtle font-medium">
@@ -111,9 +153,10 @@ export function AdminSidebar() {
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium ${
+                      onClick={onCloseMobile}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                         isActive
-                          ? 'bg-kumo-tint text-kumo-brand'
+                          ? 'bg-kumo-tint text-kumo-brand font-semibold'
                           : 'text-kumo-default hover:bg-kumo-tint hover:text-kumo-strong'
                       }`}
                     >
@@ -130,8 +173,8 @@ export function AdminSidebar() {
         </div>
       </div>
 
-      {/* Footer status summary widget */}
-      <div className="p-4 border-t border-kumo-hairline bg-kumo-canvas/50">
+      {/* Bottom Status Widget */}
+      <div className="p-4 border-t border-kumo-line bg-kumo-canvas/60 shrink-0">
         <div className="grid gap-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-kumo-subtle flex items-center gap-1.5">

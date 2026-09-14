@@ -9,13 +9,15 @@ import { PriceSummaryCard } from '../components/kiosk/PriceSummaryCard';
 import { PromptPayModal } from '../components/kiosk/PromptPayModal';
 import { StatusTracker } from '../components/kiosk/StatusTracker';
 import { SlipUploadModal } from '../components/kiosk/SlipUploadModal';
+import { KioskShell } from '../components/kiosk/KioskShell';
 
 export default function KioskPage() {
   const step = useKioskStore((s) => s.step);
   const quote = useKioskStore((s) => s.quote);
 
   return (
-    <div className="grid gap-6 max-w-3xl mx-auto py-2">
+    <KioskShell>
+      <div className="grid gap-6 max-w-3xl mx-auto py-2">
       {/* Page Title & Heading (Sentence case, no font-bold) */}
       <div className="grid gap-1">
         <h1 className="text-xl font-semibold text-kumo-strong">
@@ -53,5 +55,6 @@ export default function KioskPage() {
       {/* Fallback Slip Upload Modal */}
       <SlipUploadModal />
     </div>
+    </KioskShell>
   );
 }
