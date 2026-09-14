@@ -17,7 +17,9 @@ export async function handleDownloadJobPdf(req: Request, res: Response, next: Ne
     }
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${job.originalFileName}"`);
+    const safeAscii = (job.originalFileName || 'document.pdf').replace(/[^\x20-\x7E]/g, '_');
+    const encodedName = encodeURIComponent(job.originalFileName || 'document.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeAscii}"; filename*=UTF-8''${encodedName}`);
     fs.createReadStream(job.tempFilePath).pipe(res);
   } catch (err) {
     next(err);

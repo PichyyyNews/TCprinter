@@ -2,6 +2,8 @@ import { io, Socket } from 'socket.io-client';
 import { agentConfig } from '../config/agent.config';
 import { JobExecutorService, NewJobPayload } from '../services/executor.service';
 import { PrinterMonitorService } from '../services/monitor.service';
+import { SimulationPrinterDriver } from '../drivers/simulation.driver';
+import { SumatraPrinterDriver } from '../drivers/sumatra.driver';
 
 export class AgentSocketClient {
   private socket: Socket | null = null;
@@ -35,6 +37,20 @@ export class AgentSocketClient {
       await this.executor.executeJob(jobData);
     });
 
+    this.socket.on('agent:test_print', async (payload) => {
+      console.log(`[AgentClient] Received hardware test print request:`, payload);
+      await this.executor.executeTestPrint(payload);
+    });
+
+    this.socket.on('agent:set_mode', (data: { mode: 'SIMULATION' | 'SUMATRA' }) => {
+      console.log(`[AgentClient] Dynamically switching driver mode to: ${data.mode}`);
+      const newDriver = data.mode === 'SUMATRA'
+        ? new SumatraPrinterDriver()
+        : new SimulationPrinterDriver();
+      this.executor.setDriver(newDriver);
+      this.monitor.setDriver(newDriver);
+    });
+
     this.socket.on('disconnect', (reason) => {
       console.warn(`[AgentClient] Disconnected from backend: ${reason}`);
       this.stopHeartbeat();
@@ -51,9 +67,10 @@ export class AgentSocketClient {
       const status = await this.monitor.checkHardwareStatus();
       this.socket?.emit('agent:heartbeat', {
         printerStatus: status,
+        driverMode: this.executor.getDriverName(),
         timestamp: new Date().toISOString(),
       });
-    }, 30000);
+    }, 15000);
   }
 
   private stopHeartbeat(): void {

@@ -8,15 +8,16 @@ generator client {
 }
 
 model Printer {
-  id             String   @id @default(uuid())
-  name           String   @unique
-  driverName     String
-  connectionType String   @default("USB")
-  status         String   @default("ONLINE")
-  lastSeen       DateTime @default(now())
-  trays          Tray[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  name               String   @unique
+  driverName         String
+  connectionType     String   @default("USB")
+  status             String   @default("ONLINE")
+  totalSheetsPrinted Int      @default(0)
+  lastSeen           DateTime @default(now())
+  trays              Tray[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 model Tray {
@@ -60,7 +61,7 @@ model PrintJob {
   isDuplex         Boolean     @default(false)
   duplexEdge       String      @default("NONE") // "NONE" | "LONG_EDGE" | "SHORT_EDGE"
   targetTrayId     String?
-  targetTray       Tray?       @relation(fields: [targetTrayId], references: [id])
+  targetTray       Tray?       @relation(fields: [targetTrayId], references: [id], onDelete: SetNull)
   
   baseAmount       Int
   satangAmount     Int

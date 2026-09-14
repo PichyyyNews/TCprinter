@@ -16,7 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <IconProvider>
           {/* Header navigation */}
           <header className="sticky top-0 z-40 bg-kumo-base/95 backdrop-blur-sm border-b border-kumo-line px-6 py-3">
-            <div className="max-w-5xl mx-auto flex items-center justify-between">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
               <Link href="/" className="flex items-center gap-2.5 text-kumo-strong font-semibold text-sm">
                 <div className="p-1.5 bg-orange-50 text-kumo-brand rounded-md border border-orange-200">
                   <Printer size={18} weight="thin" />
@@ -46,13 +46,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </header>
 
           {/* Main content */}
-          <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 md:p-8">
+          <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
             {children}
           </main>
 
           {/* Footer */}
           <footer className="border-t border-kumo-line bg-kumo-base py-4 px-6 text-center text-xs text-kumo-subtle">
-            <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
               <span>TCprinter • Cloudflare Kumo Design System • Thai PromptPay Standard</span>
               <span className="font-mono text-[0.9em]">v1.0.0</span>
             </div>

@@ -80,8 +80,12 @@ export async function createPrintJob(input: CreateJobInput): Promise<CreateJobRe
   const satangAmount = await allocateSatangForAmount(baseAmount);
   const totalAmount = parseFloat((baseAmount + satangAmount / 100).toFixed(2));
 
-  // PromptPay payload & QR
-  const { payload, qrCodeDataUrl } = await createPromptPayQr(env.PROMPTPAY_TARGET, totalAmount);
+  // Dynamic PromptPay payload & QR (SystemConfig takes precedence over .env)
+  const ppConfig = await prisma.systemConfig.findUnique({
+    where: { key: 'promptpay_target' },
+  });
+  const promptPayTarget = ppConfig?.value?.trim() || env.PROMPTPAY_TARGET;
+  const { payload, qrCodeDataUrl } = await createPromptPayQr(promptPayTarget, totalAmount);
 
   const expiresAt = new Date(Date.now() + ORDER_TIMEOUT_SECONDS * 1000);
   const orderCode = generateOrderCode();
@@ -149,13 +153,19 @@ export async function dispatchJobToAgent(job: any) {
     });
 
     const io = getIO();
-    const targetTray = job.targetTray || (await prisma.tray.findUnique({ where: { id: job.targetTrayId } }));
+    const targetTray = job.targetTray || (job.targetTrayId ? await prisma.tray.findUnique({
+      where: { id: job.targetTrayId },
+      include: { printer: true },
+    }) : null);
+
+    const printerName = targetTray?.printer?.name || 'TC-Main-Printer';
 
     io.to('kiosk:agent').emit('agent:new_job', {
       jobId: job.id,
       orderCode: job.orderCode,
       downloadToken: env.AGENT_TOKEN,
       printSettings: {
+        printerName,
         paperSize: job.paperSize,
         isColor: job.isColor,
         isDuplex: job.isDuplex,
@@ -190,12 +200,17 @@ export async function completeJob(jobId: string, printedPages: number, execution
     },
   });
 
-  // Deduct paper remaining if targetTray exists
+  // Calculate actual sheets consumed: if duplex ceil(pageCount / 2) * copies, else pageCount * copies
+  const pageCount = job.pageCount || 1;
+  const copies = job.copies || 1;
+  const sheetsUsed = (job.isDuplex ? Math.ceil(pageCount / 2) : pageCount) * copies;
+
+  // Deduct paper remaining and increment printer sheets counter
   if (job.targetTrayId) {
     try {
       const tray = await prisma.tray.findUnique({ where: { id: job.targetTrayId } });
       if (tray) {
-        const remaining = Math.max(0, tray.paperRemaining - printedPages);
+        const remaining = Math.max(0, tray.paperRemaining - sheetsUsed);
         await prisma.tray.update({
           where: { id: tray.id },
           data: {
@@ -203,9 +218,19 @@ export async function completeJob(jobId: string, printedPages: number, execution
             status: remaining === 0 ? 'OUT_OF_PAPER' : tray.status,
           },
         });
+
+        if (tray.printerId) {
+          await prisma.printer.update({
+            where: { id: tray.printerId },
+            data: {
+              totalSheetsPrinted: { increment: sheetsUsed },
+              lastSeen: new Date(),
+            },
+          });
+        }
       }
     } catch (err) {
-      logger.error('Failed to deduct paper remaining:', err);
+      logger.error('Failed to deduct paper remaining or update printer counter:', err);
     }
   }
 
@@ -229,6 +254,15 @@ export async function completeJob(jobId: string, printedPages: number, execution
       message: 'พิมพ์เอกสารเสร็จสมบูรณ์เรียบร้อยแล้ว กรุณารับเอกสารที่ช่องรับ',
     });
     io.to('kiosk:admin').emit('admin:order_updated', { jobId, orderCode: job.orderCode, status: 'COMPLETED' });
+    if (job.targetTrayId) {
+      const refreshedTray = await prisma.tray.findUnique({ where: { id: job.targetTrayId }, include: { printer: true } });
+      if (refreshedTray) {
+        io.to('kiosk:admin').emit('admin:tray_updated', refreshedTray);
+        if (refreshedTray.printer) {
+          io.to('kiosk:admin').emit('admin:printer_updated', refreshedTray.printer);
+        }
+      }
+    }
   } catch (err) {
     logger.error('Socket emit error on completeJob:', err);
   }

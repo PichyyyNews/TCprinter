@@ -1,4 +1,6 @@
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 import { IPrinterDriver } from '../drivers/base.driver';
 import { FileDownloaderService } from './downloader.service';
 import { agentConfig } from '../config/agent.config';
@@ -8,6 +10,7 @@ export interface NewJobPayload {
   orderCode: string;
   downloadToken: string;
   printSettings: {
+    printerName?: string;
     paperSize: string;
     isColor: boolean;
     isDuplex: boolean;
@@ -24,8 +27,113 @@ export class JobExecutorService {
     private downloader: FileDownloaderService
   ) {}
 
+  setDriver(driver: IPrinterDriver) {
+    this.driver = driver;
+    console.log(`[Executor] Active printer driver set to: ${driver.name}`);
+  }
+
+  getDriverName(): string {
+    return this.driver.name;
+  }
+
+  async executeTestPrint(payload: {
+    printerName?: string;
+    paperSize?: string;
+    isColor?: boolean;
+    trayNumber?: number;
+  }): Promise<boolean> {
+    console.log(`[Executor] Executing test print on printer: ${payload.printerName || agentConfig.PRINTER_NAME}`);
+    if (!fs.existsSync(agentConfig.TEMP_DIR)) {
+      fs.mkdirSync(agentConfig.TEMP_DIR, { recursive: true });
+    }
+
+    const testFilePath = path.join(agentConfig.TEMP_DIR, `test_page_${Date.now()}.pdf`);
+
+    const minimalPdf = `%PDF-1.1
+%¥±ë
+1 0 obj
+  << /Type /Catalog
+     /Pages 2 0 R
+  >>
+endobj
+2 0 obj
+  << /Type /Pages
+     /Kids [3 0 R]
+     /Count 1
+     /MediaBox [0 0 300 144]
+  >>
+endobj
+3 0 obj
+  <<  /Type /Page
+      /Parent 2 0 R
+      /Resources
+       << /Font
+           << /F1
+               << /Type /Font
+                  /Subtype /Type1
+                  /BaseFont /Helvetica
+               >>
+           >>
+       >>
+      /Contents 4 0 R
+  >>
+endobj
+4 0 obj
+  << /Length 55 >>
+stream
+  BT
+    /F1 18 Tf
+    50 70 Td
+    (TCprinter Hardware Test Page) Tj
+  ET
+endstream
+endobj
+xref
+0 5
+0000000000 65535 f 
+0000000015 00000 n 
+0000000068 00000 n 
+0000000157 00000 n 
+0000000304 00000 n 
+trailer
+  << /Root 1 0 R
+     /Size 5
+  >>
+startxref
+408
+%%EOF`;
+
+    try {
+      fs.writeFileSync(testFilePath, minimalPdf);
+
+      const result = await this.driver.print({
+        filePath: testFilePath,
+        printerName: payload.printerName || agentConfig.PRINTER_NAME,
+        paperSize: payload.paperSize || 'A4',
+        isColor: payload.isColor || false,
+        isDuplex: false,
+        duplexEdge: 'NONE',
+        trayNumber: payload.trayNumber || 1,
+        copies: 1,
+        pageRange: '1',
+      });
+
+      console.log(`[Executor] Test print completed with status: ${result.success}`);
+      return result.success;
+    } catch (err) {
+      console.error('[Executor] Test print error:', err);
+      return false;
+    } finally {
+      if (fs.existsSync(testFilePath)) {
+        try {
+          fs.unlinkSync(testFilePath);
+        } catch {}
+      }
+    }
+  }
+
   async executeJob(job: NewJobPayload): Promise<void> {
-    console.log(`[Executor] Starting execution for job ${job.jobId} (${job.orderCode})`);
+    console.log(`[Executor] Starting execution for job ${job.jobId} (${job.orderCode}) using ${this.driver.name}`);
     let downloadedFilePath = '';
 
     try {
@@ -33,9 +141,10 @@ export class JobExecutorService {
       downloadedFilePath = await this.downloader.downloadJobPdf(job.jobId, job.downloadToken);
 
       // 2. Dispatch to driver
+      const targetPrinter = job.printSettings.printerName || agentConfig.PRINTER_NAME;
       const result = await this.driver.print({
         filePath: downloadedFilePath,
-        printerName: agentConfig.PRINTER_NAME,
+        printerName: targetPrinter,
         paperSize: job.printSettings.paperSize,
         isColor: job.printSettings.isColor,
         isDuplex: job.printSettings.isDuplex,

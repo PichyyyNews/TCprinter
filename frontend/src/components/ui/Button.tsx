@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '../../lib/cn';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'subtle' | 'destructive';
+  variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
 }
@@ -25,6 +25,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         'bg-kumo-base text-kumo-default border border-kumo-line hover:bg-kumo-tint active:bg-kumo-recessed shadow-none',
       subtle: 'bg-transparent text-kumo-subtle hover:text-kumo-default hover:bg-kumo-tint border border-transparent',
       destructive:
+        'bg-kumo-critical text-white hover:opacity-90 border border-transparent active:opacity-100 shadow-none',
+      danger:
         'bg-kumo-critical text-white hover:opacity-90 border border-transparent active:opacity-100 shadow-none',
     };
 

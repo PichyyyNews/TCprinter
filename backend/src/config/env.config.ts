@@ -12,6 +12,7 @@ const envSchema = z.object({
   PROMPTPAY_TARGET: z.string().default('0812345678'),
   CORS_ORIGIN: z.string().default('*'),
   UPLOAD_DIR: z.string().default('./uploads/temp'),
+  WEBHOOK_TOLERANCE_MINUTES: z.coerce.number().default(15),
 });
 
 const parsed = envSchema.safeParse(process.env);

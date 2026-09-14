@@ -4,7 +4,8 @@ import { cn } from '../../lib/cn';
 
 export interface DialogProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
+  onClose?: () => void;
   title?: React.ReactNode;
   description?: React.ReactNode;
   children: React.ReactNode;
@@ -14,20 +15,26 @@ export interface DialogProps {
 export function Dialog({
   open,
   onOpenChange,
+  onClose,
   title,
   description,
   children,
   className,
 }: DialogProps) {
+  const handleClose = () => {
+    if (onClose) onClose();
+    if (onOpenChange) onOpenChange(false);
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && open) {
-        onOpenChange(false);
+        handleClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onOpenChange]);
+  }, [open, onClose, onOpenChange]);
 
   // Rule 15: Never conditionally render dialogs in JSX tree.
   // Use CSS visibility / opacity to support smooth open/close transitions without DOM tearing.
@@ -62,7 +69,7 @@ export function Dialog({
             )}
           </div>
           <button
-            onClick={() => onOpenChange(false)}
+            onClick={handleClose}
             className="text-kumo-subtle hover:text-kumo-default p-1 rounded-md hover:bg-kumo-tint"
             aria-label="Close dialog"
           >

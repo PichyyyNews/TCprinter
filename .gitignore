@@ -43,6 +43,7 @@ print-agent/temp/
 # Logs
 logs/
 *.log
+*.traineddata
 
 # OS & Editor files
 .DS_Store
