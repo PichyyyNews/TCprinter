@@ -3,65 +3,110 @@
 
 ---
 
-## 📌 ภาพรวมโครงการ (Project Overview)
+## 📌 ภาพรวมสถาปัตยกรรมระบบ 4 ส่วนหลัก (Core Modules)
 
-**TCprinter** เป็นโซลูชันระบบตู้พิมพ์เอกสารแบบบริการตนเอง (Self-service Kiosk) ตลอด 24 ชั่วโมง โดยผู้ใช้งานสามารถอัปโหลดไฟล์ PDF ผ่านมือถือหรือหน้าจอทัชสกรีน เลือกปรับแต่งการพิมพ์ (ขนาดกระดาษ, โหมดสี, พิมพ์หน้าเดียว/หน้า-หลัง, จำนวนชุด) ระบบจะคำนวณราคาแบบ Dynamic พร้อมสุ่มเศษสตางค์ และสร้าง PromptPay QR Code ให้ผู้ใช้สแกนจ่าย เมื่อตรวจพบยอดเงินโอนเข้า ระบบจะส่งคำสั่งพิมพ์ไปยังเครื่องพิมพ์จริงผ่าน Print Agent โดยอัตโนมัติทันที
+ระบบถูกแบ่งออกเป็น 4 ส่วนหลักที่ทำงานร่วมกันแบบ Real-time ตั้งแต่ผู้ใช้อัปโหลดไฟล์ไปจนถึงกระดาษพิมพ์ออกมา:
+
+### 1. ส่วนติดต่อผู้ใช้งานและผู้ดูแลระบบ (Frontend Web - Next.js)
+* **User Interface (หน้าบ้าน):**
+  - อัปโหลดไฟล์ PDF (ระบบตรวจสอบและนับหน้าอัตโนมัติ)
+  - เลือกการตั้งค่าการพิมพ์ (ดึงข้อมูลถาดกระดาษที่พร้อมใช้งานจริงจาก Admin)
+  - แสดงราคาแบบ Dynamic Pricing ทันทีที่เปลี่ยนการตั้งค่า
+  - แสดง PromptPay QR Code (แบบระบุยอดเงินมีเศษสตางค์)
+  - แสดงสถานะคิวแบบ Real-time ผ่าน WebSocket (รอจ่าย $\rightarrow$ กำลังพิมพ์ $\rightarrow$ เสร็จสิ้น)
+  - มีปุ่ม "อัปโหลดสลิป" (สำหรับ Payment แนวทางที่ 1 เป็นแผนสำรอง)
+* **Admin Dashboard (หลังบ้าน):**
+  - ตั้งค่าและจัดการถาดกระดาษ (Tray Mapping) ว่าช่องไหนใส่กระดาษอะไร (A4, A3, ขาวดำ, สี) เพื่อเปิด/ปิดตัวเลือกหน้าบ้าน
+  - ดูประวัติการพิมพ์และสถานะคิวทั้งหมด
+
+### 2. ระบบประมวลผลกลาง (Backend API - Node.js / Express)
+* **File Engine:** รับไฟล์ที่อัปโหลด แกะจำนวนหน้า (`pdf-parse`) และจัดการลบไฟล์ทิ้งเมื่อพิมพ์เสร็จเพื่อความปลอดภัย
+* **Pricing Engine:** คำนวณราคาตามสูตร (โหมดสี + หน้าหลัง + ขนาดกระดาษ) และสุ่มเศษสตางค์ (เช่น `.01` - `.99`) เพื่อใช้แยกแยะยอดโอน
+* **Queue & Logic Manager:** สร้างคิวลงฐานข้อมูล (PostgreSQL) และตรวจสอบว่าการตั้งค่ากระดาษที่ User เลือก ตรงกับสถานะถาดที่ Admin ตั้งไว้หรือไม่
+* **WebSocket Server (Socket.io):** กระจายสถานะการพิมพ์และสถานะการชำระเงินกลับไปที่หน้าจอผู้ใช้ทันที
+
+### 3. ระบบชำระเงินแบบ Hybrid (Payment Gateway)
+ทำงานประสานกัน 2 ช่องทางเพื่อความเสถียรและใช้งานฟรี:
+* **ช่องทางหลัก (Auto Notification):**
+  - โทรศัพท์ Android (เครื่องสำรอง) เปิดแอปธนาคารรับแจ้งเตือน
+  - แอปดักจับ Notification ทำงานเบื้องหลัง เมื่อมีเงินเข้าจะยิง Webhook (ยอดเงิน + เวลา) มาที่ Backend
+  - Backend นำยอดเงินที่มีเศษสตางค์ไปจับคู่กับคิวที่รออยู่ และกด "จ่ายสำเร็จ" อัตโนมัติ
+* **ช่องทางสำรอง (OCR Slip Fallback):**
+  - หากระบบหลักดีเลย์ ผู้ใช้กดอัปโหลดสลิปที่หน้าเว็บ
+  - Backend ส่งรูปสลิปเข้า Tesseract.js (OCR) ดึงยอดเงินและเวลาออกมา
+  - ตรวจสอบความถูกต้องและวันเวลา หากตรงเงื่อนไข $\rightarrow$ กด "จ่ายสำเร็จ" อัตโนมัติ
+
+### 4. ตัวกลางสั่งพิมพ์และฮาร์ดแวร์ (Print Agent & Printer)
+* **Print Agent (Python/Node.js):** สคริปต์ขนาดเล็กที่รันอยู่บนเซิร์ฟเวอร์เดียวกับที่ต่อสาย USB/LAN เข้าเครื่องพิมพ์
+* **การทำงาน:**
+  - รอรับคำสั่ง (Job Payload) จาก Backend ว่ามีคิวที่จ่ายเงินสำเร็จแล้ว
+  - ดาวน์โหลดไฟล์ชั่วคราว
+  - สั่งรันคำสั่ง OS-level (เช่น CUPS บน Linux หรือ Print Spooler บน Windows) โดยแนบ Parameter การพิมพ์ไปครบถ้วน (หน้า-หลัง, สี, เลือกถาดกระดาษ)
+  - ส่งสถานะ "พิมพ์สำเร็จ" กลับไปที่ Backend เพื่ออัปเดตหน้าจอ User ให้เสร็จสมบูรณ์
 
 ---
 
-## 🏛️ สถาปัตยกรรมระบบ 4 โมดูลหลัก (Core Modules)
+## 🔄 แผนผังการไหลของข้อมูล (User Journey Data Flow)
 
 ```text
-TCprinter/
-├── docs/                       # 📚 เอกสารสถาปัตยกรรมและพิมพ์เขียวระบบฉบับสมบูรณ์
-│   ├── ARCHITECTURE.md         # สถาปัตยกรรมระบบโดยรวม, State Machine, และ Tech Stack
-│   ├── SYSTEM_DATA_FLOW.md     # Sequence Diagrams แสดงขั้นตอนการไหลของข้อมูลตั้งแต่ต้นจนจบ
-│   ├── PAYMENT_ENGINE.md       # ระบบคิดเงิน, การสุ่มเศษสตางค์, Android Webhook และ Slip OCR
-│   ├── PRINT_AGENT_SPEC.md     # ข้อกำหนดของ Print Agent สั่งพิมพ์ Windows/Linux และคุมถาด
-│   ├── DATABASE_SCHEMA.md      # ER-Diagram, Schema Definition (Prisma/PostgreSQL)
-│   └── API_CONTRACT.md         # ข้อตกลง REST API & Socket.io Events ระหว่างโมดูล
-├── frontend/                   # 💻 ส่วนติดต่อผู้ใช้และแอดมิน (Next.js + Tailwind CSS)
-├── backend/                    # ⚙️ ระบบประมวลผลกลาง (Node.js + Express + Prisma + Socket.io)
-├── print-agent/                # 🤖 สคริปต์ควบคุมเครื่องพิมพ์จริง (Windows SumatraPDF / Spooler)
-├── mobile-listener/            # 📲 คู่มือการตั้งค่าเครื่อง Android ดักจับการแจ้งเตือนเงินเข้า
-└── .gitignore                  # กรองไฟล์ที่ไม่จำเป็นและไฟล์เอกสารชั่วคราว
+  [1] PDF Upload          [2] Parse & Pricing        [3] Satang QR Code       [4] Scan & Pay
+User ─────────► Frontend ──────────────────► Backend ─────────────────► PromptPay ────────► User Bank
+                     ▲                          │                           ▲                      │
+                     │                          ▼                           │             ┌────────┴────────┐
+                     │                  [8] Delete Temp File                │             │                 │
+                     │                          │                           │          Flow A            Flow B
+                     │                          ▼                           │         (Webhook)       (Slip OCR)
+                     │                 [5] Socket Status                    │             │                 │
+                     └────────────────── "กำลังพิมพ์" ◄────────────────────┼─────────────┴─────────────────┘
+                                                │                           │
+                                                ▼                           │
+                                       [6] Dispatch Job                     │
+                                                │                           │
+                                                ▼                           │
+                                          Print Agent                       │
+                                                │                           │
+                                                ▼                           │
+                                     [7] SumatraPDF / Spooler               │
+                                                │                           │
+                                                ▼                           │
+                                        Physical Printer                    │
+                                                │                           │
+                                                ▼                           │
+                     [8] "สำเร็จ! รับเอกสาร" ◄──┴───────────────────────────┘
 ```
+
+1. `User` โยนไฟล์ PDF $\rightarrow$ `Frontend`
+2. `Backend` นับหน้า / เช็คถาดกระดาษจาก `Database` $\rightarrow$ ส่งกลับมาโชว์ราคาที่ `Frontend`
+3. `User` กดยืนยัน $\rightarrow$ `Backend` สุ่มยอดเศษสตางค์ $\rightarrow$ แสดง QR Code สร้างจาก PromptPay เบอร์ร้าน
+4. `User` สแกนจ่ายผ่านแอปธนาคาร
+   * *Flow A:* ธนาคารแจ้งเตือนเข้ามือถือ Android $\rightarrow$ ส่ง Webhook บอก `Backend`
+   * *Flow B (ถ้า A ไม่ทำงาน):* `User` อัปโหลดสลิป $\rightarrow$ `Backend` ทำ OCR อ่านสลิป
+5. `Backend` เจอว่ายอดตรงกัน $\rightarrow$ อัปเดต Database $\rightarrow$ ยิง Socket.io บอกหน้าเว็บว่า "กำลังพิมพ์"
+6. `Backend` ส่งไฟล์และตั้งค่าไปให้ `Print Agent`
+7. `Print Agent` สั่งเครื่องพิมพ์ทำงาน $\rightarrow$ แจ้ง `Backend` เมื่อเสร็จ
+8. `Frontend` ขึ้นสถานะ "สำเร็จ! รับเอกสารได้เลย" $\rightarrow$ `Backend` ลบไฟล์ทิ้ง
 
 ---
 
-## 📑 สารบัญเอกสารเชิงเทคนิค (Technical Documentation)
+## 📑 สารบัญเอกสารเชิงเทคนิคใน `docs/`
 
 | เอกสาร | หัวข้อหลัก | ลิงก์ |
 |---|---|---|
 | **Architecture Overview** | โครงสร้างระบบ 4 เลเยอร์, เทคโนโลยีที่เลือกใช้, State Machine วงจรชีวิตงานพิมพ์, และความปลอดภัยตามมาตรฐาน PDPA | [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| **System Data Flow** | แผนผัง Sequence Diagram แสดงลำดับการทำงานตั้งแต่ User โยนไฟล์ $\rightarrow$ คิดเงิน $\rightarrow$ จ่ายเงิน $\rightarrow$ สั่งพิมพ์ $\rightarrow$ ลบไฟล์ | [SYSTEM_DATA_FLOW.md](docs/SYSTEM_DATA_FLOW.md) |
-| **Payment Engine** | อัลกอริทึมสุ่มเศษสตางค์ป้องกันยอดชนกัน, การสร้าง EMVCo PromptPay Dynamic QR, การดักจับ Notification จากแอปธนาคาร, และระบบตรวจสลิปสำรองด้วย AI OCR | [PAYMENT_ENGINE.md](docs/PAYMENT_ENGINE.md) |
-| **Print Agent Spec** | วิธีการสั่งพิมพ์แบบ Silent Print บน Windows (SumatraPDF / Win32 Spooler) และ CUPS บน Linux, การเลือกถาดกระดาษ (Tray Selection), และการจัดการ Error Code | [PRINT_AGENT_SPEC.md](docs/PRINT_AGENT_SPEC.md) |
-| **Database Schema** | นิยาม Prisma Schema, ER-Diagram, ดัชนีความเร็วสูงสำหรับการจับคู่ยอดเงิน และมาตรการป้องกันการใช้สลิปซ้ำ (Anti-replay) | [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) |
+| **System Data Flow** | ลำดับการไหลของข้อมูล 8 ขั้นตอน พร้อม Sequence Diagram ละเอียดทั้ง Flow A และ Flow B | [SYSTEM_DATA_FLOW.md](docs/SYSTEM_DATA_FLOW.md) |
+| **Payment Engine** | อัลกอริทึมสุ่มเศษสตางค์ป้องกันยอดชนกัน, การสร้าง EMVCo PromptPay Dynamic QR, Android Notification Webhook, และระบบตรวจสลิปสำรองด้วย AI OCR | [PAYMENT_ENGINE.md](docs/PAYMENT_ENGINE.md) |
+| **Print Agent Spec** | วิธีการสั่งพิมพ์แบบ Silent Print บน Windows (SumatraPDF / Win32 Spooler) และ CUPS บน Linux, การเลือกถาดกระดาษ, และ Error Codes | [PRINT_AGENT_SPEC.md](docs/PRINT_AGENT_SPEC.md) |
+| **Database Schema** | นิยาม Prisma Schema, ER-Diagram, ดัชนีความเร็วสูงสำหรับการจับคู่ยอดเงิน และมาตรการป้องกันการใช้สลิปซ้ำ | [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) |
 | **API Contract** | ข้อตกลง RESTful API Endpoint (`/api/v1`) และ Event Contract บน Socket.io สำหรับสื่อสารแบบเรียลไทม์ | [API_CONTRACT.md](docs/API_CONTRACT.md) |
-
----
-
-## 💡 จุดเด่นของระบบ (Key Highlights)
-
-1. **Zero Gateway Fee (ไม่มีค่าธรรมเนียมชำระเงินรายเดือน):**
-   - **ทางเลือกหลัก:** แจ้งเตือนเงินเข้าอัตโนมัติผ่านการ Forward Notification จากแอปธนาคารบนมือถือ Android จับคู่ด้วยเศษสตางค์เฉพาะออร์เดอร์
-   - **ทางเลือกสำรอง:** ผู้ใช้อัปโหลดสลิปธนาคารเข้าระบบ OCR (Tesseract.js) กรณีระบบหลักดีเลย์
-2. **Dynamic Tray Awareness (ระบบรู้สถานะถาดกระดาษจริง):**
-   - ผู้ดูแลสามารถระบุได้ว่าถาดใดใส่กระดาษอะไร (เช่น Tray 1: A4 ขาวดำ, Tray 2: A4 สี, Tray 3: A3)
-   - หากกระดาษในถาดใดหมด ระบบจะปิดตัวเลือกนั้นที่หน้าบ้านทันที ป้องกันผู้ใช้สั่งพิมพ์ผิดพลาด
-3. **Data Privacy & Ephemeral Storage (ความเป็นส่วนตัวสูง):**
-   - เอกสารของผู้ใช้จะถูกเก็บในโฟลเดอร์ชั่วคราวและลบทิ้งทันที (`fs.unlink`) เมื่อการพิมพ์เสร็จสิ้น หรือหมดอายุใน 15 นาที
-4. **Real-time Experience (ทำงานแบบสดทุกวินาที):**
-   - เชื่อมต่อหน้าจอผู้ใช้กับ Backend และ Print Agent ผ่าน Socket.io แสดงผลสถานะการชำระเงินและคิวพิมพ์ทันทีโดยไม่ต้องกดรีเฟรชหน้าจอ
 
 ---
 
 ## 🗺️ แผนผังการพัฒนา (Development Roadmap)
 
-- [x] **Phase 1: Architecture Blueprint & Specifications (สถานะปัจจุบัน)**
+- [x] **Phase 1: Architecture Blueprint & Specifications (สมบูรณ์)**
   - จัดโครงสร้าง Repository
   - ออกแบบเอกสารสถาปัตยกรรมระบบทั้ง 6 ฉบับ
+  - จัดทำผังข้อมูล 8 ขั้นตอน User Journey Data Flow
 - [ ] **Phase 2: Backend Core Engine & Database**
   - ติดตั้ง Node.js, Express, TypeScript, Prisma ORM
   - พัฒนา File Engine ตรวจนับหน้า PDF (`pdf-parse`) และระบบลบไฟล์อัตโนมัติ
@@ -72,8 +117,8 @@ TCprinter/
   - พัฒนาโมดูลสร้าง EMVCo PromptPay Dynamic QR Code
   - พัฒนา OCR Slip Fallback ด้วย Tesseract.js พร้อมระบบป้องกันสลิปซ้ำ (SHA-256 Hash)
 - [ ] **Phase 4: Frontend Web Portal & Admin (Next.js)**
-  - พัฒนาหน้า User Portal (Drag & Drop PDF, Print Settings, Live Price, QR Code, Status Tracker)
-  - พัฒนาหน้า Admin Dashboard (จัดการถาดกระดาษ, ราคา, ประวัติคิวงาน)
+  - พัฒนาหน้า User Portal (Drag & Drop PDF, Print Settings, Live Price, QR Code, Status Tracker, ปุ่มอัปโหลดสลิป)
+  - พัฒนาหน้า Admin Dashboard (Tray Mapping เปิด/ปิดถาด, ตรวจสอบคิวงานและประวัติ)
 - [ ] **Phase 5: Print Agent (Hardware Integration)**
   - พัฒนา Print Agent รันบน Windows
   - เชื่อมต่อ SumatraPDF CLI / Windows Spooler ควบคุมถาดและ Duplex
