@@ -6,6 +6,14 @@ import { getPricingMatrix } from '../services/pricing.service';
 import { storeQuote, createPrintJob } from '../services/queue.service';
 import { createJobSchema } from '../schemas/job.schema';
 
+function decodeUtf8Filename(originalName: string): string {
+  try {
+    return Buffer.from(originalName, 'latin1').toString('utf8');
+  } catch {
+    return originalName;
+  }
+}
+
 export async function handleGetQuote(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.file) {
@@ -14,12 +22,13 @@ export async function handleGetQuote(req: Request, res: Response, next: NextFunc
 
     const filePath = req.file.path;
     const metadata = await parsePdfFile(filePath);
+    const fileName = decodeUtf8Filename(req.file.originalname);
 
     const quoteId = crypto.randomUUID();
 
     storeQuote({
       quoteId,
-      fileName: req.file.originalname,
+      fileName,
       tempFilePath: filePath,
       fileSizeBytes: req.file.size,
       pageCount: metadata.pageCount,
@@ -43,7 +52,7 @@ export async function handleGetQuote(req: Request, res: Response, next: NextFunc
       success: true,
       data: {
         quoteId,
-        fileName: req.file.originalname,
+        fileName,
         fileSizeBytes: req.file.size,
         pageCount: metadata.pageCount,
         availableTrays: trays,
