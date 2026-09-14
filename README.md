@@ -22,7 +22,7 @@
 ### 2. ระบบประมวลผลกลาง (Backend API - Node.js / Express)
 * **File Engine:** รับไฟล์ที่อัปโหลด แกะจำนวนหน้า (`pdf-parse`) และจัดการลบไฟล์ทิ้งเมื่อพิมพ์เสร็จเพื่อความปลอดภัย
 * **Pricing Engine:** คำนวณราคาตามสูตร (โหมดสี + หน้าหลัง + ขนาดกระดาษ) และสุ่มเศษสตางค์ (เช่น `.01` - `.99`) เพื่อใช้แยกแยะยอดโอน
-* **Queue & Logic Manager:** สร้างคิวลงฐานข้อมูล (PostgreSQL) และตรวจสอบว่าการตั้งค่ากระดาษที่ User เลือก ตรงกับสถานะถาดที่ Admin ตั้งไว้หรือไม่
+* **Queue & Logic Manager:** สร้างคิวลงฐานข้อมูล (PostgreSQL / SQLite) และตรวจสอบว่าการตั้งค่ากระดาษที่ User เลือก ตรงกับสถานะถาดที่ Admin ตั้งไว้หรือไม่
 * **WebSocket Server (Socket.io):** กระจายสถานะการพิมพ์และสถานะการชำระเงินกลับไปที่หน้าจอผู้ใช้ทันที
 
 ### 3. ระบบชำระเงินแบบ Hybrid (Payment Gateway)
@@ -98,6 +98,8 @@ User ─────────► Frontend ───────────�
 | **Print Agent Spec** | วิธีการสั่งพิมพ์แบบ Silent Print บน Windows (SumatraPDF / Win32 Spooler) และ CUPS บน Linux, การเลือกถาดกระดาษ, และ Error Codes | [PRINT_AGENT_SPEC.md](docs/PRINT_AGENT_SPEC.md) |
 | **Database Schema** | นิยาม Prisma Schema, ER-Diagram, ดัชนีความเร็วสูงสำหรับการจับคู่ยอดเงิน และมาตรการป้องกันการใช้สลิปซ้ำ | [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) |
 | **API Contract** | ข้อตกลง RESTful API Endpoint (`/api/v1`) และ Event Contract บน Socket.io สำหรับสื่อสารแบบเรียลไทม์ | [API_CONTRACT.md](docs/API_CONTRACT.md) |
+| **Infrastructure & Caching** | สถาปัตยกรรม Infra (Standalone vs Cloud), Redis Satang Pool Cache, Optimistic UI, และ WebSocket Recovery | [INFRASTRUCTURE_AND_CACHING.md](docs/INFRASTRUCTURE_AND_CACHING.md) |
+| **Project Structure Guide** | กฎการแยกไฟล์แบบ Clean Architecture (ห้ามสร้างไฟล์รวมมิตร Monolithic), การแยก Routes, Controllers, Services, และ Components ย่อย | [PROJECT_STRUCTURE_GUIDE.md](docs/PROJECT_STRUCTURE_GUIDE.md) |
 
 ---
 
@@ -105,24 +107,24 @@ User ─────────► Frontend ───────────�
 
 - [x] **Phase 1: Architecture Blueprint & Specifications (สมบูรณ์)**
   - จัดโครงสร้าง Repository
-  - ออกแบบเอกสารสถาปัตยกรรมระบบทั้ง 6 ฉบับ
+  - ออกแบบเอกสารสถาปัตยกรรมระบบทั้ง 8 ฉบับ (รวม Infra, Caching และ Modular Structure Guide)
   - จัดทำผังข้อมูล 8 ขั้นตอน User Journey Data Flow
-- [ ] **Phase 2: Backend Core Engine & Database**
+- [ ] **Phase 2: Backend Core Engine & Database (Modular Clean Architecture)**
+  - จัดวางโฟลเดอร์แบบแยกส่วนตาม `PROJECT_STRUCTURE_GUIDE.md`
   - ติดตั้ง Node.js, Express, TypeScript, Prisma ORM
   - พัฒนา File Engine ตรวจนับหน้า PDF (`pdf-parse`) และระบบลบไฟล์อัตโนมัติ
-  - พัฒนา Pricing Engine และระบบสุ่มเศษสตางค์ (Satang Allocation)
-  - พัฒนา WebSocket Gateway (Socket.io)
+  - พัฒนา Pricing Engine และ In-memory/Redis Satang Pool Cache
+  - พัฒนา WebSocket Gateway (Socket.io) พร้อม State Recovery
 - [ ] **Phase 3: Hybrid Payment Engine**
   - พัฒนา Webhook Endpoint รองรับการแจ้งเตือนจาก Android Listener
   - พัฒนาโมดูลสร้าง EMVCo PromptPay Dynamic QR Code
   - พัฒนา OCR Slip Fallback ด้วย Tesseract.js พร้อมระบบป้องกันสลิปซ้ำ (SHA-256 Hash)
 - [ ] **Phase 4: Frontend Web Portal & Admin (Next.js)**
-  - พัฒนาหน้า User Portal (Drag & Drop PDF, Print Settings, Live Price, QR Code, Status Tracker, ปุ่มอัปโหลดสลิป)
+  - พัฒนาหน้า User Portal (แยก Components: FileUploadZone, PdfPreviewCard, PrintConfigForm, PriceSummary, PromptPayModal, StatusTracker)
   - พัฒนาหน้า Admin Dashboard (Tray Mapping เปิด/ปิดถาด, ตรวจสอบคิวงานและประวัติ)
 - [ ] **Phase 5: Print Agent (Hardware Integration)**
-  - พัฒนา Print Agent รันบน Windows
-  - เชื่อมต่อ SumatraPDF CLI / Windows Spooler ควบคุมถาดและ Duplex
+  - พัฒนา Print Agent รันบน Windows แยก Drivers (SumatraPDF / Win32 Spooler)
   - เชื่อมต่อ Socket.io รับงานและส่งสถานะเสร็จสิ้น
 - [ ] **Phase 6: End-to-End Testing & Deployment**
   - ทดสอบทดลองพิมพ์จริงร่วมกับฮาร์ดแวร์
-  - จัดทำ Packaging และ Script รันตู้แบบ Auto-start เมื่อเปิดเครื่อง
+  - ตั้งค่า PM2, Cloudflare Tunnel และ Kiosk Mode
